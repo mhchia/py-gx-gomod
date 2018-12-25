@@ -12,6 +12,8 @@ import re
 import subprocess
 import sys
 
+import requests
+
 
 least_go_version_str = '1.11.4'
 # ensure go version >= `least_go_version_str`
@@ -32,7 +34,7 @@ HOME = os.getenv("HOME")
 TMP_GIT_REPO_PATH = "{}/.py-gx-gomod/gx-git-repos".format(HOME)
 GX_PREFIX = "{}/src/gx/ipfs".format(GOPATH)
 
-RepoVersion = namedtuple("RepoVersion", ["gx_path", "git_repo", "version"])
+RepoVersion = namedtuple("RepoVersion", ["gx_path", "git_repo", "version", "pkg"])
 
 logger = logging.getLogger("update-gomod")
 
@@ -190,16 +192,14 @@ def get_repo_deps(root_repo_path):
                 dep_gx_hash = dep_info['hash']
                 dep_gx_path = make_gx_path(dep_gx_hash, dep_name)
                 queue.append(dep_gx_path)
-        # try:
-        #     git_repo = _dvcsimport_to_git_repo(_remove_url_prefix(package_info["bugs"]["url"]))
-        # except KeyError:
-        git_repo = _dvcsimport_to_git_repo(package_info['gx']['dvcsimport'])
+        pkg = package_info['gx']['dvcsimport']
+        git_repo = _dvcsimport_to_git_repo(pkg)
         version = None
         if "version" in package_info:
             version = package_info["version"]
         visited_repos.add(repo_path)
         if repo_path != root_repo_path:
-            rv = RepoVersion(gx_path=repo_path, git_repo=git_repo, version=version)
+            rv = RepoVersion(gx_path=repo_path, git_repo=git_repo, version=version, pkg=pkg)
             deps.append(rv)
     # filter out non-github deps
     github_deps = [
@@ -253,7 +253,7 @@ def update_repo_to_go_mod(git_repo, version=None, commit=None):
 def update_repos(root_repo_path, repos):
     os.chdir(root_repo_path)
     for repo_version in repos:
-        gx_path, git_repo, raw_version = repo_version
+        gx_path, git_repo, raw_version, _ = repo_version
         gx_hash = extract_gx_hash(gx_path)
         version, commit = parse_version_from_repo_gx_hash(git_repo, raw_version, gx_hash)
         try:
@@ -264,7 +264,20 @@ def update_repos(root_repo_path, repos):
             logger.debug("failed to update the repo %s", git_repo)
 
 
+def get_gxed_repo_list():
+    gxed_repos_api_url = "https://api.github.com/orgs/gxed/repos"
+    data = requests.get(gxed_repos_api_url)
+    data_json = data.json()
+    repo_map = {
+        repo["name"]: _remove_url_prefix(repo["html_url"])
+        for repo in data_json
+    }
+    print(repo_map)
+    return repo_map
+
+
 def do_update(path):
+    gxed_repo_list = get_gxed_repo_list()
     deps = get_repo_deps(path)
     update_repos(path, deps)
 
