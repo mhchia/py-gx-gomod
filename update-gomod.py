@@ -1,23 +1,25 @@
 # -*- coding: utf-8 -*-
 
+import argparse
 from collections import (
     namedtuple,
 )
 import json
 import logging
 import os
+import pathlib
 import re
 import subprocess
 import sys
 
 
-least_go_version_str = '1.11'
+least_go_version_str = '1.11.4'
 # ensure go version >= `least_go_version_str`
 res_go_version = subprocess.run(["go", "version"], stdout=subprocess.PIPE, encoding='utf-8')
 if res_go_version.returncode != 0:
     raise Exception("failed to run `go version`")
 res_go_version_str = res_go_version.stdout
-ret = re.search(r"go\sversion\sgo([0-9]+\.[0-9]+)", res_go_version_str)
+ret = re.search(r"go\sversion\sgo([0-9]+\.[0-9]+\.[0-9]+)", res_go_version_str)
 if ret is None:
     raise Exception("failed to parse the version from `go version`")
 version_str = ret.groups(0)[0]
@@ -25,8 +27,9 @@ if version_str < least_go_version_str:
     raise Exception("go version should be >= {}".format(least_go_version_str))
 
 
-GOPATH = os.getenv('GOPATH')
-TMP_GIT_REPO_PATH = "/tmp/gx-git-repos"
+GOPATH = os.getenv("GOPATH")
+HOME = os.getenv("HOME")
+TMP_GIT_REPO_PATH = "{}/.py-gx-gomod/gx-git-repos".format(HOME)
 GX_PREFIX = "{}/src/gx/ipfs".format(GOPATH)
 
 RepoVersion = namedtuple("RepoVersion", ["gx_path", "git_repo", "version"])
@@ -76,11 +79,7 @@ def make_git_cmd(path, command):
 
 def download_git_repo(git_repo):
     repo_path = make_git_repo_path(git_repo)
-    if not os.path.exists(TMP_GIT_REPO_PATH):
-        try:
-            os.mkdir(TMP_GIT_REPO_PATH)
-        except FileExistsError:
-            pass
+    pathlib.Path(repo_path).mkdir(parents=True, exist_ok=True)
     if not os.path.exists(make_git_path(repo_path)):
         git_url = "https://{}".format(git_repo)
         res = subprocess.run(
@@ -251,7 +250,8 @@ def update_repo_to_go_mod(git_repo, version=None, commit=None):
     )
 
 
-def update_repos(repos):
+def update_repos(root_repo_path, repos):
+    os.chdir(root_repo_path)
     for repo_version in repos:
         gx_path, git_repo, raw_version = repo_version
         gx_hash = extract_gx_hash(gx_path)
@@ -264,32 +264,40 @@ def update_repos(repos):
             logger.debug("failed to update the repo %s", git_repo)
 
 
-def do_update():
-    current_path = os.getcwd()
-    deps = get_repo_deps(current_path)
-    update_repos(deps)
+def do_update(path):
+    deps = get_repo_deps(path)
+    update_repos(path, deps)
 
 
-def do_download():
-    current_path = os.getcwd()
-    deps = get_repo_deps(current_path)
+def do_download(path):
+    deps = get_repo_deps(path)
     git_repo_list = [i.git_repo for i in deps]
     download_repos(git_repo_list)
 
 
-supported_modes = {
+modes = {
     "update": do_update,
     "download": do_download,
 }
 
 
 if __name__ == "__main__":
-    if len(sys.argv) <= 1:
-        raise ValueError("Need the argument `mode`")
-    mode = sys.argv[1]
-    if mode not in supported_modes:
+    supported_modes = ", ".join(modes.keys())
+    parser = argparse.ArgumentParser(
+        description='Resolve gx dependencies to git versions/commits',
+    )
+    parser.add_argument('mode', type=str, help="supported modes: {}".format(supported_modes))
+    parser.add_argument(
+        'path',
+        type=str,
+        help="root project directory, which contains `package.json`",
+    )
+    args = parser.parse_args()
+    mode = args.mode
+    path = args.path
+    if mode not in modes:
         raise ValueError("Wrong mode={}. Supported: {}".format(
             mode,
-            ", ".join([i for i in supported_modes.keys()])
+            supported_modes,
         ))
-    supported_modes[mode]()
+    modes[mode](path)
