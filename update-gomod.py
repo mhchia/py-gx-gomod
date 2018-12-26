@@ -34,7 +34,7 @@ HOME = os.getenv("HOME")
 TMP_GIT_REPO_PATH = "{}/.py-gx-gomod/gx-git-repos".format(HOME)
 GX_PREFIX = "{}/src/gx/ipfs".format(GOPATH)
 
-RepoVersion = namedtuple("RepoVersion", ["gx_path", "git_repo", "version", "pkg"])
+RepoVersion = namedtuple("RepoVersion", ["gx_hash", "git_repo", "version", "pkg"])
 
 logger = logging.getLogger("update-gomod")
 
@@ -62,7 +62,7 @@ def extract_gx_hash(gx_path):
     path_list = gx_path[len(GX_PREFIX) + 1:].split('/')
     if len(path_list) < 2:
         raise ValueError("malform gx_path={}".format(gx_path))
-    return path_list[0]
+    return path_list[0], path_list[1]
 
 
 def make_git_repo_path(git_repo):
@@ -170,6 +170,31 @@ def _dvcsimport_to_git_repo(dvcsimport_path):
     return "/".join(layered_paths[:3])
 
 
+def get_gxed_repos_from_github():
+    # gxed_repos_api_url = "https://api.github.com/orgs/gxed/repos"
+    # url = gxed_repos_api_url
+    # data = []
+    # while True:
+    #     res = requests.get(url)
+    #     data += res.json()
+    #     # has more pages
+    #     if "next" in res.links:
+    #         url = res.links["next"]["url"]
+    #     else:
+    #         break
+    # repo_map = {
+    #     repo["name"]: _remove_url_prefix(repo["html_url"])
+    #     for repo in data
+    # }
+    # FIXME: temporarily inline the result, to avoid API rate limit: 60 times per hour for
+    #        non-authenticated requests
+    repo_map = {'bbloom': 'github.com/gxed/bbloom', 'client_golang': 'github.com/gxed/client_golang', 'eventfd': 'github.com/gxed/eventfd', 'GoEndian': 'github.com/gxed/GoEndian', 'go-is-domain': 'github.com/gxed/go-is-domain', 'superrepo': 'github.com/gxed/superrepo', 'golang-levenshtein': 'github.com/gxed/golang-levenshtein', 'go-homedir': 'github.com/gxed/go-homedir', 'raft': 'github.com/gxed/raft', 'go-codec': 'github.com/gxed/go-codec', 'go-metrics': 'github.com/gxed/go-metrics', 'cli': 'github.com/gxed/cli', 'raft-boltdb': 'github.com/gxed/raft-boltdb', 'bolt': 'github.com/gxed/bolt', 'mux': 'github.com/gxed/mux', 'context': 'github.com/gxed/context', 'btcd': 'github.com/gxed/btcd', 'ed25519': 'github.com/gxed/ed25519', 's3gof3r': 'github.com/gxed/s3gof3r', 'bazil-fuse': 'github.com/gxed/bazil-fuse', 'mmap-go': 'github.com/gxed/mmap-go', 'errors': 'github.com/gxed/errors', 'smux': 'github.com/gxed/smux', 'websocket': 'github.com/gxed/websocket', 'badger': 'github.com/gxed/badger', 'go-lz4': 'github.com/gxed/go-lz4', 'btcutil': 'github.com/gxed/btcutil', 'protobuf': 'github.com/gxed/protobuf', 'go-farm': 'github.com/gxed/go-farm', 'go-immutable-radix': 'github.com/gxed/go-immutable-radix', 'golang-lru': 'github.com/gxed/golang-lru', 'sys': 'github.com/gxed/sys', 'ginkgo': 'github.com/gxed/ginkgo', 'gomega': 'github.com/gxed/gomega', 'base58': 'github.com/gxed/base58', 'sha256-simd': 'github.com/gxed/sha256-simd', 'blake2b-simd': 'github.com/gxed/blake2b-simd', 'opentracing-go': 'github.com/gxed/opentracing-go', 'go.uuid': 'github.com/gxed/go.uuid', 'go-check': 'github.com/gxed/go-check', 'pubsub': 'github.com/gxed/pubsub', 'hashland': 'github.com/gxed/hashland', 'zeroconf': 'github.com/gxed/zeroconf', 'dns': 'github.com/gxed/dns', 'go-net': 'github.com/gxed/go-net', 'go-text': 'github.com/gxed/go-text', 'go-crypto': 'github.com/gxed/go-crypto', 'go4-lock': 'github.com/gxed/go4-lock', 'go-isatty': 'github.com/gxed/go-isatty', 'go-colorable': 'github.com/gxed/go-colorable', 'structs': 'github.com/gxed/structs', 'go-toml': 'github.com/gxed/go-toml', 'toml': 'github.com/gxed/toml', 'pb': 'github.com/gxed/pb', 'go-runewidth': 'github.com/gxed/go-runewidth', 'color': 'github.com/gxed/color', 'tools': 'github.com/gxed/tools', 'jsondiff': 'github.com/gxed/jsondiff', 'ansi': 'github.com/gxed/ansi', 'go-multierror': 'github.com/gxed/go-multierror', 'go-errwrap': 'github.com/gxed/go-errwrap', 'fsnotify': 'github.com/gxed/fsnotify', 'fuse': 'github.com/gxed/fuse', 'go-crypto-dav': 'github.com/gxed/go-crypto-dav', 'bulb': 'github.com/gxed/bulb', 'sizedwaitgroup': 'github.com/gxed/sizedwaitgroup', 'go-git': 'github.com/gxed/go-git', 'go-diff': 'github.com/gxed/go-diff', 'warnings': 'github.com/gxed/warnings', 'gcfg': 'github.com/gxed/gcfg', 'ssh-agent': 'github.com/gxed/ssh-agent', 'go-billy': 'github.com/gxed/go-billy', 'uuid': 'github.com/gxed/uuid', 'go-nat': 'github.com/gxed/go-nat', 'goupnp': 'github.com/gxed/goupnp', 'backoff': 'github.com/gxed/backoff', 'go_rng': 'github.com/gxed/go_rng', 'go-junit-report': 'github.com/gxed/go-junit-report', 'go-require-gx': 'github.com/gxed/go-require-gx', 'opencensus-go': 'github.com/gxed/opencensus-go', 'go-shellwords': 'github.com/gxed/go-shellwords', 'grpc-go': 'github.com/gxed/grpc-go', 'oauth2': 'github.com/gxed/oauth2', 'mock': 'github.com/gxed/mock', 'glog': 'github.com/gxed/glog', 'go-genproto': 'github.com/gxed/go-genproto', 'google-cloud-go': 'github.com/gxed/google-cloud-go', 'google-api-go-client': 'github.com/gxed/google-api-go-client', 'go-sync': 'github.com/gxed/go-sync', 'pq': 'github.com/gxed/pq', 'prometheus-common': 'github.com/gxed/prometheus-common', 'client_model': 'github.com/gxed/client_model', 'httprouter': 'github.com/gxed/httprouter', 'go-gitignore': 'github.com/gxed/go-gitignore', 'aws-sdk-go': 'github.com/gxed/aws-sdk-go', 'go-jmespath': 'github.com/gxed/go-jmespath', 'envconfig': 'github.com/gxed/envconfig', 'go-ceph': 'github.com/gxed/go-ceph', 'testify': 'github.com/gxed/testify', 'gods': 'github.com/gxed/gods', 'go-buffruneio': 'github.com/gxed/go-buffruneio', 'ssh_config': 'github.com/gxed/ssh_config', 'go-flags': 'github.com/gxed/go-flags'}  # noqa: E501
+    # FIXME: explicitly remove `bbloom`, since it cannot be found in `gxed/bbloom`,
+    #        but can be found in `ipfs/bbloom`
+    del repo_map['bbloom']
+    return repo_map
+
+
 def get_repo_deps(root_repo_path):
     """Go through the dependencies
     """
@@ -192,14 +217,23 @@ def get_repo_deps(root_repo_path):
                 dep_gx_hash = dep_info['hash']
                 dep_gx_path = make_gx_path(dep_gx_hash, dep_name)
                 queue.append(dep_gx_path)
-        pkg = package_info['gx']['dvcsimport']
-        git_repo = _dvcsimport_to_git_repo(pkg)
-        version = None
-        if "version" in package_info:
-            version = package_info["version"]
         visited_repos.add(repo_path)
+        # avoid the `root_repo_path`, since `root_repo_path` might not necessarily be a gx package
         if repo_path != root_repo_path:
-            rv = RepoVersion(gx_path=repo_path, git_repo=git_repo, version=version, pkg=pkg)
+            pkg = package_info['gx']['dvcsimport']
+            gx_hash, gx_pkg_name = extract_gx_hash(repo_path)
+            # try to find the deps from the org gxed, to increase the probability to successfully
+            # find the version
+            # TODO: possibly make it to `git_repos` as a list, then we can try over all the options
+            gxed_repo_map = get_gxed_repos_from_github()
+            if gx_pkg_name in gxed_repo_map:
+                git_repo = gxed_repo_map[gx_pkg_name]
+            else:
+                git_repo = _dvcsimport_to_git_repo(pkg)
+            version = None
+            if "version" in package_info:
+                version = package_info["version"]
+            rv = RepoVersion(gx_hash=gx_hash, git_repo=git_repo, version=version, pkg=pkg)
             deps.append(rv)
     # filter out non-github deps
     github_deps = [
@@ -253,8 +287,7 @@ def update_repo_to_go_mod(git_repo, version=None, commit=None):
 def update_repos(root_repo_path, repos):
     os.chdir(root_repo_path)
     for repo_version in repos:
-        gx_path, git_repo, raw_version, _ = repo_version
-        gx_hash = extract_gx_hash(gx_path)
+        gx_hash, git_repo, raw_version, _ = repo_version
         version, commit = parse_version_from_repo_gx_hash(git_repo, raw_version, gx_hash)
         try:
             update_repo_to_go_mod(git_repo, version, commit)
@@ -264,20 +297,7 @@ def update_repos(root_repo_path, repos):
             logger.debug("failed to update the repo %s", git_repo)
 
 
-def get_gxed_repo_list():
-    gxed_repos_api_url = "https://api.github.com/orgs/gxed/repos"
-    data = requests.get(gxed_repos_api_url)
-    data_json = data.json()
-    repo_map = {
-        repo["name"]: _remove_url_prefix(repo["html_url"])
-        for repo in data_json
-    }
-    print(repo_map)
-    return repo_map
-
-
 def do_update(path):
-    gxed_repo_list = get_gxed_repo_list()
     deps = get_repo_deps(path)
     update_repos(path, deps)
 
